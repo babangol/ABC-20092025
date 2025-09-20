@@ -1,0 +1,18 @@
+trigger:
+- main
+
+pool:
+  name: batch11
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+
+  - script: |
+      pip install ansible
+    displayName: "Install Ansible"
+
+  - script: |
+      ansible-playbook -i hosts.ini terraform-automation.yml
+    displayName: "Run Terraform Ansible Playbook"
