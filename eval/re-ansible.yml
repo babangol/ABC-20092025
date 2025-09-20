@@ -1,0 +1,74 @@
+-- name: Automate Terraform workflow
+  hosts: localhost
+  connection: local
+  vars:
+    repo_url: "https://github.com/babangol/ABC-20092025.git"
+    repo_dir: "/tmp/terraform-repo"
+    terraform_output_file: "/tmp/terraform_output.txt"
+
+  tasks:
+    - name: Install required packages (Terraform and Git)
+      become: yes
+      apt:
+        name:
+          - git
+          - unzip
+        state: present
+        update_cache: yes
+
+    - name: Download Terraform binary
+      get_url:
+        url: "https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip"
+        dest: "/tmp/terraform.zip"
+        mode: '0644'
+
+    - name: Unzip Terraform binary
+      unarchive:
+        src: "/tmp/terraform.zip"
+        dest: "/usr/local/bin/"
+        remote_src: yes
+      become: yes
+
+    - name: Ensure Terraform is executable
+      file:
+        path: "/usr/local/bin/terraform"
+        mode: '0755'
+      become: yes
+
+    - name: Clone Terraform Git repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dir }}"
+        version: main
+
+    - name: Initialize Terraform
+      command: terraform init
+      args:
+        chdir: "{{ repo_dir }}"
+
+    - name: Apply Terraform (auto approve)
+      command: terraform apply -auto-approve
+      args:
+        chdir: "{{ repo_dir }}"
+      register: tf_apply
+
+    - name: Capture Terraform output
+      command: terraform output
+      args:
+        chdir: "{{ repo_dir }}"
+      register: tf_output
+
+    - name: Save Terraform output to file
+      copy:
+        content: "{{ tf_output.stdout }}"
+        dest: "{{ terraform_output_file }}"
+
+    - name: Terraform destroy (cleanup infra)
+      command: terraform destroy -auto-approve
+      args:
+        chdir: "{{ repo_dir }}"
+
+    - name: Remove cloned repository
+      file:
+        path: "{{ repo_dir }}"
+        state: absent
